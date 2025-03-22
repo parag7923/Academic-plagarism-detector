@@ -1,0 +1,9 @@
+numpy
+pymupdf
+easyocr
+streamlit
+flask
+pymupdf
+easyocr
+
+
