@@ -21,7 +21,7 @@ Academic Plagiarism Detector is a Streamlit-based application that detects plagi
     pip install -r requirements.txt
     ```
     ```bash
-    pip install -r requirements.txt
+    pip install --force-reinstall streamlit
     ```
 
 
