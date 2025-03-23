@@ -12,8 +12,7 @@ def extract_zip(file_path, extract_to='test'):
     with zipfile.ZipFile(file_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
 
-def extract_text_from_pdf(pdf_path):
-    reader = easyocr.Reader(['en'])
+def extract_text_from_pdf(pdf_path, reader, progress_bar, progress_text, current, total):
     text = ""
     try:
         doc = fitz.open(pdf_path)
@@ -25,7 +24,9 @@ def extract_text_from_pdf(pdf_path):
         doc.close()
         os.remove('temp_page.png')
     except Exception as e:
-        st.error(f"Error processing {pdf_path}: {e}")
+        st.error(f"❗ Error processing {os.path.basename(pdf_path)}: {e}")
+    progress_bar.progress(min(current / total, 1.0))
+    progress_text.text(f"📄 Processing {current}/{total} - {os.path.basename(pdf_path)}")
     return text
 
 def detect_plagiarism(texts, file_names):
@@ -43,38 +44,49 @@ def detect_plagiarism(texts, file_names):
     return plagiarism_results, no_plagiarism_files
 
 def main():
-    st.title("Plagiarism Feedback Generator")
-    uploaded_file = st.file_uploader("Upload a ZIP file containing PDFs", type=["zip"])
+    st.set_page_config(page_title="Academic Plagiarism Detector", layout="wide")
+    st.title("🧑‍💻 Academic Plagiarism Detector")
+    st.markdown("**Upload a ZIP file containing multiple PDF documents to detect plagiarism efficiently.**")
+
+    uploaded_file = st.file_uploader("📤 Upload ZIP File", type=["zip"], help="Ensure the ZIP contains only PDF files.")
 
     if uploaded_file:
         zip_path = "uploaded.zip"
         with open(zip_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        st.success("File uploaded successfully! Click on Process to start detection.")
+        st.success("✅ File uploaded successfully! Click on **Start Processing** to begin.")
 
-        if st.button("Process"):
+        if st.button("🚀 Start Processing"):
             extract_to = 'test'
             extract_zip(zip_path, extract_to)
-            
             pdf_files = [f for f in os.listdir(extract_to) if f.endswith('.pdf')]
+            
             if not pdf_files:
-                st.error("No PDF files found.")
+                st.error("⚠ No PDF files found. Please check your ZIP file.")
                 return
 
-            texts = [extract_text_from_pdf(os.path.join(extract_to, pdf)) for pdf in pdf_files]
+            st.info(f"📁 **Total PDF files detected:** {len(pdf_files)}")
+            reader = easyocr.Reader(['en'])
+
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+
+            texts = [extract_text_from_pdf(os.path.join(extract_to, pdf), reader, progress_bar, progress_text, i+1, len(pdf_files)) for i, pdf in enumerate(pdf_files)]
+            
+            st.success("✅ All files processed successfully!")
             results, no_plagiarism_files = detect_plagiarism(texts, pdf_files)
 
             if results:
-                st.write("### Detected Plagiarized Files:")
+                st.write("## 🚩 Detected Plagiarized Files:")
                 for file1, file2, sim in results:
-                    st.write(f"{file1} and {file2} - Similarity: {sim*100:.2f}%")
+                    st.markdown(f"<p style='font-size:20px;'><strong>{file1}</strong> & <strong>{file2}</strong> - Similarity: <strong>{sim*100:.2f}%</strong></p>", unsafe_allow_html=True)
             else:
-                st.success("No plagiarism detected among any files.")
+                st.success("🎉 No plagiarism detected among any files.")
             
             if no_plagiarism_files:
-                st.write("### Files with No Plagiarism Detected:")
+                st.write("## ✅ Files with No Plagiarism Detected:")
                 for file in no_plagiarism_files:
-                    st.write(f"- {file}")
+                    st.markdown(f"<p style='font-size:20px;'>📘 <strong>{file}</strong></p>", unsafe_allow_html=True)
             
             shutil.rmtree(extract_to)
             os.remove(zip_path)
